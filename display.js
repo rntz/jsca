@@ -61,15 +61,12 @@ function wrapContext(ctx) {
 
 
 // Construct the game's starting state
-var delay_ms = 1*1000;
+var delay_ms = 100;
 var rows = 200;
 var cols = 200;
-var game = new Torus(CAs.conway, rows, cols, false);
-//var game = new Torus(CAs.hilife, rows, cols, false);
-
 var game = new InfGrid(CAs.conway, false);
 
-putPattern(game, patterns.gosperGun);
+putPattern(game, patterns.gosperGun, 89, -98);
 
 // Now, deal with the canvas
 $(document).ready(function() {

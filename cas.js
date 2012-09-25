@@ -28,5 +28,5 @@ function ConwayLike(survive, born) {
 
 CAs = {
     conway: new ConwayLike([2,3], [3]),
-    hilife: new ConwayLike([2,3], [3,6]),
+    highlife: new ConwayLike([2,3], [3,6]),
 };
