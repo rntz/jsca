@@ -28,13 +28,23 @@ var context_methods = {
         //     this.line(col, 0, col, rows);
         // }
 
-        if ("cell" in cfg) {
-            for (var row = 0; row < rows; ++row) {
-                for (var col = 0; col < cols; ++col) {
-                    this.save();
-                    this.translate(col+0.5, row+0.5);
-                    cfg.cell(row, col);
-                    this.restore();
+        if ("drawCell" in cfg) {
+            var that = this;
+            function drawCell(row,col) {
+                that.save();
+                that.translate(col+0.5, row+0.5);
+                cfg.drawCell(row, col);
+                that.restore();
+            }
+            if ("cells" in cfg) {
+                cfg.cells.forEach(function(coords){
+                    drawCell(coords[0], coords[1]);
+                });
+            } else {
+                for (var row = 0; row < rows; ++row) {
+                    for (var col = 0; col < cols; ++col) {
+                        drawCell(row, col);
+                    }
                 }
             }
         }
@@ -51,16 +61,25 @@ function wrapContext(ctx) {
 
 
 // Construct the game's starting state
-var delay_ms = 60 * 1000;
-var rows = 70;
-var cols = 70;
+var delay_ms = 0;
+var rows = 200;
+var cols = 200;
 var game = new Torus(CAs.conway, rows, cols, false);
 //var game = new Torus(CAs.hilife, rows, cols, false);
 
-// R-pentomino
-[       [2,1], [2,2],
- [1,0], [1,1],
-        [0,1]].forEach(function(v) { game.put(v[0], v[1], true); });
+var game = new InfGrid(CAs.conway, false);
+
+// // R-pentomino
+// [       [2,1], [2,2],
+//  [1,0], [1,1],
+//         [0,1]].forEach(function(v) { game.put(v[0], v[1], true); });
+
+// Acorn.
+[       [2,1],
+                      [1,3], 
+ [0,0], [0,1],               [0,4], [0,5], [0,6]].forEach(function(v){
+     game.put(v[0], v[1], true)
+ });
 
 // Now, deal with the canvas
 $(document).ready(function() {
@@ -88,7 +107,9 @@ $(document).ready(function() {
 
     // Update game every 2 seconds.
     function update() {
-        game.draw(ctx);
+        game.draw(ctx,
+                  -Math.floor(rows/2), Math.ceil(rows/2),
+                  -Math.floor(cols/2), Math.ceil(cols/2));
         game.step();
         window.setTimeout(update, delay_ms);
     }

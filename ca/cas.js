@@ -14,12 +14,7 @@ function ConwayLike(survive, born) {
         stableValues: [false],
         step: function(v, nbrs) {
             var alive = nbrs.filter(function(x) {return x;}).length;
-            if (v) {
-                // alert("alive = " + alive + ", survive = " + survive + "\n" +
-                //       "survive.indexOf(alive) = " + survive.indexOf(alive));
-                return -1 != survive.indexOf(alive);
-            }
-            else { return -1 != born.indexOf(alive); }
+            return (v ? survive : born).contains(alive);
         },
         drawCell: function(ctx, v) {
             if (v) {

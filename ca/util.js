@@ -7,7 +7,15 @@ function bind(object, func) {
     }
 }
 
-Array.prototype.contains = function(e) { return -1 != this.indexOf(e); }
+Array.prototype.contains = function(e) { return -1 !== this.indexOf(e); }
+
+function copyObject(object) {
+    var copy = {};
+    for (var p in object) {
+        copy[p] = object[p];
+    }
+    return copy;
+}
 
 // eachUpto(n, f) ==> [f 0, f 1, ..., f n]
 function eachUpto(n, f) {
