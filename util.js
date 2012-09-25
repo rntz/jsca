@@ -1,6 +1,8 @@
 var PI = Math.PI;
 var TAU = 2 * PI;
 
+function id(x) { return x; }
+
 function bind(object, func) {
     return function() {
         return func.apply(object, arguments);

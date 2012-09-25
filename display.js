@@ -61,25 +61,12 @@ function wrapContext(ctx) {
 
 
 // Construct the game's starting state
-var delay_ms = 0;
+var delay_ms = 100;
 var rows = 200;
 var cols = 200;
-var game = new Torus(CAs.conway, rows, cols, false);
-//var game = new Torus(CAs.hilife, rows, cols, false);
-
 var game = new InfGrid(CAs.conway, false);
 
-// // R-pentomino
-// [       [2,1], [2,2],
-//  [1,0], [1,1],
-//         [0,1]].forEach(function(v) { game.put(v[0], v[1], true); });
-
-// Acorn.
-[       [2,1],
-                      [1,3], 
- [0,0], [0,1],               [0,4], [0,5], [0,6]].forEach(function(v){
-     game.put(v[0], v[1], true)
- });
+putPattern(game, patterns.gosperGun, 89, -98);
 
 // Now, deal with the canvas
 $(document).ready(function() {
@@ -101,9 +88,6 @@ $(document).ready(function() {
 
     ctx.scale(xscale, yscale);
     ctx.lineWidth = 0.075;
-
-    // Okay, try drawing a thing.
-    //game.draw(ctx);
 
     // Update game every 2 seconds.
     function update() {

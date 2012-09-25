@@ -13,7 +13,7 @@ function ConwayLike(survive, born) {
         neighborhood: "moore",
         stableValues: [false],
         step: function(v, nbrs) {
-            var alive = nbrs.filter(function(x) {return x;}).length;
+            var alive = nbrs.filter(id).length;
             return (v ? survive : born).contains(alive);
         },
         drawCell: function(ctx, v) {
@@ -28,5 +28,5 @@ function ConwayLike(survive, born) {
 
 CAs = {
     conway: new ConwayLike([2,3], [3]),
-    hilife: new ConwayLike([2,3], [3,6]),
+    highlife: new ConwayLike([2,3], [3,6]),
 };
