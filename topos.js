@@ -34,7 +34,7 @@ Torus.prototype = {
         return g;
     },
 
-    get: function(row,col) {
+    get: function(row, col) {
         return this.cells[row][col];
     },
 
@@ -94,7 +94,7 @@ Torus.prototype = {
 function InfGrid(ca, bgVal) {
     this.ca = ca;
     this.bgVal = bgVal;
-    if (!ca.stableValues.contains(bgVal)) {
+    if (!isStableState(ca, bgVal)) {
         throw "infinite grid background value not stable";
     }
     this.cells = {};
@@ -126,12 +126,13 @@ InfGrid.prototype = {
     },
 
     put: function(row, col, v) {
-        if (v === this.get(row, col)) {
+        var eq = this.ca.sameState;
+        if (eq(v, this.get(row, col))) {
             // Value already there, no need to update
             return;
         }
         var c = this.coord(row, col);
-        if (v === this.bgVal) {
+        if (eq(v, this.bgVal)) {
             delete this.cells[c];
         } else {
             this.cells[c] = v;
@@ -140,6 +141,7 @@ InfGrid.prototype = {
     },
 
     step: function() {
+        var eq = this.ca.sameState;
         var that = this;
         var next = copyObject(this.cells);
         var changed = this.changing;
@@ -149,12 +151,12 @@ InfGrid.prototype = {
             var coords = changed[c];
             var row = coords[0];
             var col = coords[1];
-            var vnew = this.ca.step(v, mooreNeighbors.map(function(offs){
+            var vnew = this.ca.step(v, neighborhoods.moore.map(function(offs){
                 return that.get(row+offs[0], col+offs[1]);
             }));
-            if (v !== vnew) {
+            if (!eq(v, vnew)) {
                 this.changed(row, col);
-                if (vnew === this.bgVal) {
+                if (eq(vnew, this.bgVal)) {
                     delete next[c];
                 } else {
                     next[c] = vnew;
