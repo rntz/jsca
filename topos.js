@@ -7,10 +7,11 @@
 //
 // - step(): Steps the simulation (in-place).
 
-var mooreNeighbors =
-    [[-1,-1], [-1, 0], [-1, 1],
-     [ 0,-1],          [ 0, 1],
-     [ 1,-1], [ 1, 0], [ 1, 1]];
+var neighborhoods = {
+    moore: [[-1,-1], [-1, 0], [-1, 1],
+            [ 0,-1],          [ 0, 1],
+            [ 1,-1], [ 1, 0], [ 1, 1]],
+};
 
 
 // Torus interface is everything in the grid interface, plus:
@@ -57,7 +58,7 @@ Torus.prototype = {
         var next = eachUpto2D(this.rows, this.cols, function(row,col) {
             return that.ca.step(
                 that.cells[row][col],
-                mooreNeighbors.map(function(offs) {
+                neighborhoods.moore.map(function(offs) {
                     return that.cells[that.fixRow(row + offs[0])]
                                      [that.fixCol(col + offs[1])];
                 }));
@@ -112,7 +113,7 @@ InfGrid.prototype = {
     changed: function(row, col) {
         var that = this;
         this.changing[this.coord(row,col)] = [row, col];
-        mooreNeighbors.forEach(function(offs){
+        neighborhoods.moore.forEach(function(offs){
             var nrow = row + offs[0];
             var ncol = col + offs[1];
             that.changing[that.coord(nrow,ncol)] = [nrow, ncol];
