@@ -1,92 +1,25 @@
 // Grid interface:
 // - clone() -> grid: Copies a grid.
 //
-// - get(row, col) -> v: Gets the value at (row,col).
+// - get(x, y) -> v: Gets the value at (x,y).
 //
-// - put(row, col, v): Changes the value at (row,col) to v.
+// - put(x, y, v): Changes the value at (x,y) to v.
 //
 // - step(): Steps the simulation (in-place).
 
 var neighborhoods = {
-    moore: [[-1,-1], [-1, 0], [-1, 1],
-            [ 0,-1],          [ 0, 1],
-            [ 1,-1], [ 1, 0], [ 1, 1]],
-};
-
-
-// Torus interface is everything in the grid interface, plus:
-// - rows: number of rows
-// - cols: number of columns
-// - draw(ctx): TODO
-function Torus(ca, rows, cols, initVal) {
-    this.ca = ca;
-    this.rows = rows;
-    this.cols = cols;
-    this.cells = array2D(rows, cols, initVal);
-}
-
-Torus.prototype = {
-    clone: function(){
-        var g = new Torus(this.ca, this.rows, this.cols, false);
-        g.cells = this.cells.map(function(row) {
-            return row.map(function(x){return x;});
-        });
-        return g;
-    },
-
-    get: function(row, col) {
-        return this.cells[row][col];
-    },
-
-    put: function(row, col, v) {
-        this.cells[row][col] = v;
-    },
-
-    fixRow: function(row) {
-        row = row % this.rows;
-        return row >= 0 ? row : row + this.rows;
-    },
-
-    fixCol: function(col) {
-        col = col % this.cols;
-        return col >= 0 ? col : col + this.cols;
-    },
-
-    step: function() {
-        // TODO: optimize this inner loop.
-        var that = this;
-        var next = eachUpto2D(this.rows, this.cols, function(row,col) {
-            return that.ca.step(
-                that.cells[row][col],
-                neighborhoods.moore.map(function(offs) {
-                    return that.cells[that.fixRow(row + offs[0])]
-                                     [that.fixCol(col + offs[1])];
-                }));
-        });
-        this.cells = next;
-    },
-
-    draw: function(ctx) {
-        ctx.clearRect(0, 0, this.rows, this.cols);
-        var that = this;
-        ctx.drawGrid(this.rows, this.cols, {
-            drawCell: function(row, col) {
-                row = that.fixRow(row - Math.floor(that.rows/2));
-                col = that.fixCol(col - Math.floor(that.cols/2));
-                ctx.scale(0.9, 0.9);
-                that.ca.drawCell(ctx, that.get(row,col));
-            }
-        });
-    },
+    moore: [[-1,-1], [ 0,-1], [ 1,-1],
+            [-1, 0],          [ 1, 0],
+            [-1, 1], [ 0, 1], [ 1, 1]],
 };
 
 
 // Grid interface:
 // - clone() -> grid: Copies a grid.
 //
-// - get(row, col) -> v: Gets the value at (row,col).
+// - get(x,y) -> v: Gets the value at (x,y).
 //
-// - put(row, col, v): Changes the value at (row,col) to v.
+// - put(x,y,v): Changes the value at (x,y) to v.
 //
 // - step(): Steps the simulation (in-place).
 
@@ -108,36 +41,36 @@ InfGrid.prototype = {
         clone.changing = copyObject(this.changing);
     },
 
-    coord: function(row, col) { return row + ',' + col; },
+    coord: function(x, y) { return x + ',' + y; },
 
-    changed: function(row, col) {
+    changed: function(x, y) {
         var that = this;
-        this.changing[this.coord(row,col)] = [row, col];
+        this.changing[this.coord(x,y)] = [x,y];
         neighborhoods.moore.forEach(function(offs){
-            var nrow = row + offs[0];
-            var ncol = col + offs[1];
-            that.changing[that.coord(nrow,ncol)] = [nrow, ncol];
+            var nx = x + offs[0];
+            var ny = y + offs[1];
+            that.changing[that.coord(nx,ny)] = [nx,ny];
         });
     },
 
-    get: function(row, col) {
-        var c = this.coord(row, col);
+    get: function(x, y) {
+        var c = this.coord(x, y);
         return c in this.cells ? this.cells[c] : this.bgVal;
     },
 
-    put: function(row, col, v) {
+    put: function(x, y, v) {
         var eq = this.ca.sameState;
-        if (eq(v, this.get(row, col))) {
+        if (eq(v, this.get(x, y))) {
             // Value already there, no need to update
             return;
         }
-        var c = this.coord(row, col);
+        var c = this.coord(x, y);
         if (eq(v, this.bgVal)) {
             delete this.cells[c];
         } else {
             this.cells[c] = v;
         }
-        this.changed(row, col);
+        this.changed(x, y);
     },
 
     step: function() {
@@ -149,13 +82,12 @@ InfGrid.prototype = {
         for (var c in changed) {
             var v = c in this.cells ? this.cells[c] : this.bgVal;
             var coords = changed[c];
-            var row = coords[0];
-            var col = coords[1];
+            var x = coords[0], y = coords[1];
             var vnew = this.ca.step(v, neighborhoods.moore.map(function(offs){
-                return that.get(row+offs[0], col+offs[1]);
+                return that.get(x+offs[0], y+offs[1]);
             }));
             if (!eq(v, vnew)) {
-                this.changed(row, col);
+                this.changed(x, y);
                 if (eq(vnew, this.bgVal)) {
                     delete next[c];
                 } else {
@@ -166,24 +98,28 @@ InfGrid.prototype = {
         this.cells = next;
     },
 
-    draw: function(ctx, bottom, top, left, right) {
-        var nrows = top - bottom + 1;
-        var ncols = right - left + 1;
-        ctx.clearRect(0, 0, nrows, ncols);
+    draw: function(ctx, xstart, ystart, xend, yend) {
         var that = this;
-        // Annoying math to translate between viewpoint-coords and grid-coords.
         var cellCoords = Object.keys(this.cells).map(function(c) {
             c = c.split(',');
-            return [parseInt(c[0]) - bottom,
-                    parseInt(c[1]) - left];
+            return [parseInt(c[0]), parseInt(c[1])];
         });
-        ctx.drawGrid(nrows, ncols, {
+        // In theory, this is O(n) and optimal. In practice, would sorting and
+        // then cutting out elements perform better? Seems unlikely, but test
+        // it!
+        //
+        // It may be that the only good way to get better performance here is to
+        // use space-dividing structures like quadtrees instead of a hashtable
+        // to store cell states. May not be worth it. Investigate.
+        cellCoords = cellCoords.filter(function(c) {
+            return xstart <= c[0] && c[0] <= xend &&
+                   ystart <= c[1] && c[1] <= yend;
+        });
+        ctx.drawGrid(xstart, ystart, xend, yend, {
             cells: cellCoords,
-            drawCell: function(row, col) {
-                row = bottom + row;
-                col = left + col;
+            drawCell: function(x, y) {
                 ctx.scale(0.9, 0.9);
-                that.ca.drawCell(ctx, that.get(row,col));
+                that.ca.drawCell(ctx, that.get(x,y));
             }
         });
     },

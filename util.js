@@ -11,6 +11,11 @@ function bind(object, func) {
 
 Array.prototype.contains = function(e) { return -1 !== this.indexOf(e); }
 
+function alignUp(x, algn) {
+    var r = x % algn;
+    return 0 === r ? x : x + (x >= 0 ? algn - m : -m);
+}
+
 function copyObject(object) {
     var copy = {};
     for (var p in object) {

@@ -18,22 +18,48 @@ var context_methods = {
         this.stroke();
     },
 
-    drawGrid: function(rows, cols, cfg) {
+    drawGrid: function(xstart, ystart, xend, yend, cfg) {
         this.save();
 
-        // for (var row = 0; row <= rows; ++row) {
-        //     this.line(0, row, cols, row);
-        // }
-        // for (var col = 0; col <= cols; ++col) {
-        //     this.line(col, 0, col, rows);
-        // }
+        // Draw the grid
+        this.save();
+        this.strokeStyle = "#aaa";
 
+        this.beginPath();
+        for (var x = xstart; x <= xend; ++x) {
+            // if (0 === x % 5) continue;
+            this.moveTo(x, ystart);
+            this.lineTo(x, yend);
+        }
+        for (var y = ystart; y <= yend; ++y) {
+            // if (0 === y % 5) continue;
+            this.moveTo(xstart, y);
+            this.lineTo(xend, y);
+        }
+        this.stroke();
+
+        this.lineWidth *= 2;
+
+        this.beginPath();
+        for (var x = alignUp(xstart, 5); x <= xend; x += 5) {
+            this.moveTo(x, ystart);
+            this.lineTo(x, yend);
+        }
+        for (var y = alignUp(ystart, 5); y <= yend; y += 5) {
+            this.moveTo(xstart, y);
+            this.lineTo(xend, y);
+        }
+
+        this.stroke();
+        this.restore();
+
+        // Draw the cells
         if ("drawCell" in cfg) {
             var that = this;
-            function drawCell(row,col) {
+            function drawCell(x, y) {
                 that.save();
-                that.translate(col+0.5, row+0.5);
-                cfg.drawCell(row, col);
+                that.translate(x + 0.5, y + 0.5);
+                cfg.drawCell(x, y);
                 that.restore();
             }
             if ("cells" in cfg) {
@@ -41,13 +67,14 @@ var context_methods = {
                     drawCell(coords[0], coords[1]);
                 });
             } else {
-                for (var row = 0; row < rows; ++row) {
-                    for (var col = 0; col < cols; ++col) {
-                        drawCell(row, col);
+                for (var x = xstart; x < xend; ++x) {
+                    for (var y = ystart; y < yend; ++y) {
+                        drawCell(x, y);
                     }
                 }
             }
         }
+
         this.restore();
     },
 };
@@ -61,39 +88,44 @@ function wrapContext(ctx) {
 
 
 // Construct the game's starting state
-var delay_ms = 100;
-var rows = 200;
-var cols = 200;
+var delay_ms = 1000;
+//delay_ms *= 1000 * 1000;
+var width = 100;
+var height = 100;
 var game = new InfGrid(CAs.conway, false);
 
-putPattern(game, patterns.gosperGun, 89, -98);
+var pat = patterns.tumbler;
+putPattern(game, pat, 0, 0);
 
 // Now, deal with the canvas
 $(document).ready(function() {
     var canvas = document.getElementById("canvas");
     var ctx = wrapContext(canvas.getContext('2d'));
+    var $canvas = $(canvas);
 
-    // Switch to cartesian coords.
-    ctx.translate(0, canvas.height);
-    ctx.scale(1, -1);
+    var scale = Math.min(canvas.width / width, canvas.height / height);
+    var xscale = scale, yscale = scale;
+    var xstart = -Math.floor(width/2), ystart = -Math.floor(height/2);
+    var xend = xstart + width, yend = ystart + height;
 
-    // Draw a grid.
-    var xscale = canvas.width / cols;
-    var yscale = canvas.height / rows;
-    var scale = Math.min(xscale, yscale);
-
-    ctx.save();
-    ctx.fillStyle = "black";
-    ctx.strokeStyle = "black";
-
+    // Scale so that each cell is a 1x1 square.
     ctx.scale(xscale, yscale);
-    ctx.lineWidth = 0.075;
+    ctx.lineWidth = 0.025;      // change line widths appropriately
+    // Translate so that each pixel's position corresponds to the cell it
+    // represents.
+    ctx.translate(-xstart, -ystart);
+
+    // Add behaviors
+    // FIXME: assumes canvas.offsetParent is document!
+    $canvas.on("click", function(e) {
+        var x = e.pageX - canvas.offsetLeft,
+            y = e.pageY - canvas.offsetTop;
+    });
 
     // Update game every 2 seconds.
     function update() {
-        game.draw(ctx,
-                  -Math.floor(rows/2), Math.ceil(rows/2),
-                  -Math.floor(cols/2), Math.ceil(cols/2));
+        ctx.clearRect(xstart, ystart, width, height);
+        game.draw(ctx, xstart, ystart, xend, yend);
         game.step();
         window.setTimeout(update, delay_ms);
     }

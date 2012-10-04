@@ -9,6 +9,17 @@
 // - CA.drawCell(ctx, v): Draws a cell with a given value in a 1x1 box centered
 //   on the origin.
 function ConwayLike(born, survive) {
+    if ('undefined' === typeof survive) {
+        // Assume the first arg is a rulestring in "B/S" notation.
+        // FIXME: check this using regex.
+        var strs = born.split('/').map(function(s) {
+            return s.slice(1).split('').map(function(x) {
+                return parseInt(x);
+            });
+        });
+        born = strs[0];
+        survive = strs[1];
+    }
     return {
         neighborhood: "moore",
         sameState: function(a,b) { return a === b; },
@@ -41,7 +52,9 @@ function isStableState(ca, state) {
 }
 
 CAs = {
-    conway: new ConwayLike([3], [2,3]),
-    highLife: new ConwayLike([3,6], [2,3]),
-    dayAndNight: new ConwayLike([3,6,7,8], [3,4,6,7,8]),
+    conway: new ConwayLike("B3/S23"),
+    highLife: new ConwayLike("B36/S23"),
+    dayAndNight: new ConwayLike("B3678/S34678"),
+    "2x2": new ConwayLike("B36/S125"),
+    seeds: new ConwayLike("B2/S"),
 };
