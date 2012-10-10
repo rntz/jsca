@@ -31,7 +31,10 @@ function ConwayLike(born, survive) {
             if (v) {
                 ctx.circle(0, 0, 0.5);
                 ctx.fill();
-                // ctx.fillRect(-0.5, -0.5, 1, 1);
+            } else {
+                ctx.clearRect(-0.5, -0.5, 1, 1);
+                // ctx.fillStyle = "blue";
+                // ctx.fillRect(-0.3, -0.3, 0.3*2, 0.3*2);
             }
         },
     };

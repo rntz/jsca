@@ -11,22 +11,38 @@
       body {
         background-color: grey;
       }
-      #canvas-div {
-        margin-left: auto;
-        margin-right: auto;
-        text-align: center;
-      }
       #canvas {
         border: 1px solid black;
         background-color: white;
       }
+      div#main {
+        margin: 0 auto;
+        text-align: center;
+        width: 900px; // ugh
+      }
+      div#display {
+        float: left;
+        margin-right: 15px;
+      }
+      div#controls {
+        text-align: left;
+        padding-top: 20px;
+      }
     </style>
   </head>
   <body>
-    <div id="canvas-div">
-      <canvas id="canvas" width="780" height="780">
-        Cellular automaton simulation.
-      </canvas>
-    </div>
+    <div id="main">
+
+      <div id="display">
+        <canvas id="canvas" width="675" height="750">
+          Cellular automaton simulation.
+        </canvas>
+      </div> <!-- display -->
+
+      <div id="controls">
+        <button type="button" id="pause">Pause</button>
+      </div> <!-- controls -->
+
+    </div> <!-- main -->
   </body>
 </html>

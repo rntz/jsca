@@ -13,7 +13,7 @@ Array.prototype.contains = function(e) { return -1 !== this.indexOf(e); }
 
 function alignUp(x, algn) {
     var r = x % algn;
-    return 0 === r ? x : x + (x >= 0 ? algn - m : -m);
+    return 0 === r ? x : x + (x >= 0 ? algn - r : -r);
 }
 
 function copyObject(object) {
@@ -42,4 +42,17 @@ function eachUpto2D(n, m, f) {
 
 function array2D(xs, ys, elt) {
     return eachUpto2D(xs, ys, function(){return elt;});
+}
+
+function withDefaults(config, defaults) {
+    if (typeof config === 'undefined') {
+        config = {};
+    }
+    var result = copyObject(config);
+    for (var p in defaults) {
+        if (!(p in result)) {
+            result[p] = defaults[p];
+        }
+    }
+    return result;
 }
