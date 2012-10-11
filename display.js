@@ -1,31 +1,3 @@
-// New methods for graphics contexts
-var context_methods = {
-    line: function(sx, sy, ex, ey) {
-        this.beginPath();
-        this.moveTo(sx, sy);
-        this.lineTo(ex, ey);
-        this.stroke();
-    },
-
-    circle: function(x, y, radius) {
-        this.beginPath();
-        this.arc(x, y, radius, 0, 2 * Math.PI, true);
-        this.closePath();
-    },
-
-    strokeCircle: function(x, y, radius) {
-        this.circle(x, y, radius);
-        this.stroke();
-    },
-};
-
-function wrapContext(ctx) {
-    for (var prop in context_methods) {
-        ctx[prop] = context_methods[prop];
-    }
-    return ctx;
-}
-
 // TODO: take configuration for eg. color of grid lines
 function make5x5Grid(pixels_per_cell) {
     var pat = document.createElement('canvas');
@@ -75,6 +47,15 @@ function InfGridControl(ca, bgVal, config) {
     // Create our game
     this.model = new InfGrid(ca, bgVal);
     this.cells_to_redraw = {};
+
+    // Create background (grid) and foreground (cells) canvases.
+    this.gridCanvas = document.createElement('canvas');
+    this.gridCtx = this.gridCanvas.getContext('2d');
+    this.gridCtx.save();
+
+    this.cellCanvas = document.createElement('canvas');
+    this.cellCtx = this.cellCanvas.getContext('2d');
+    this.cellCtx.save();
 }
 
 InfGridControl.prototype = {
@@ -106,21 +87,21 @@ InfGridControl.prototype = {
         });
 
         this.canvas = canvas;
-        // TODO?: remove wrapContext
-        this.ctx = wrapContext(this.canvas.getContext('2d'));
-        this.ctx.save();
+        this.ctx = this.canvas.getContext('2d');
         this.center = config.center;
         this.scale = Math.min(canvas.width / config.dimensions[0],
                               canvas.height / config.dimensions[1]);
 
-        this.setupContext();
+        this.cellCanvas.width = this.gridCanvas.width = this.canvas.width;
+        this.cellCanvas.height = this.gridCanvas.height = this.canvas.height;
+
+        this.redraw_grid = true;
     },
 
     detach: function() {
         if (this.canvas === null) {
             throw "not attached to a canvas";
         }
-        this.ctx.restore();
         this.canvas = null;
         delete this.ctx;
     },
@@ -128,114 +109,27 @@ InfGridControl.prototype = {
     translate: function(x,y) {
         this.center[0] += x;
         this.center[1] += y;
-        this.setupContext();
-    },
-
-    draw: function() {
-        var ctx = this.ctx;
-        var dims = this.dims;
-        var model = this.model;
-        var forEachCell;
-
-        if (this.redraw_grid) {
-            this.drawGrid();
-            this.redraw_grid = false;
-            forEachCell = function(f) {
-                for (var x = dims.xstart; x <= dims.xend; ++x) {
-                    for (var y = dims.ystart; y <= dims.yend; ++y) {
-                        f(x, y, model.get(x,y));
-                    }
-                }
-            };
-        } else {
-            // Figure out which cells to redraw.
-            var to_redraw = this.cells_to_redraw;
-            forEachCell = function(f) {
-                for (var c in to_redraw) {
-                    var x = to_redraw[c];
-                    if (dims.xstart <= x[0] && x[0] <= dims.xend &&
-                        dims.ystart <= x[1] && x[1] <= dims.yend) {
-                        f(x[0], x[1], x[2]);
-                    }
-                }
-            };
-        }
-
-        this.cells_to_redraw = {};
-
-        // Actually draw the cells.
-        forEachCell(function(x,y,v) {
-            ctx.save();
-            ctx.translate(x+0.5, y+0.5);
-            ctx.scale(0.9, 0.9);
-            //ctx.clearRect(-0.5, -0.5, 1, 1);
-            model.ca.drawCell(ctx, v);
-            ctx.restore();
-        });
-    },
-
-    setupContext: function() {
-        var ctx = this.ctx;
-        ctx.restore();          // Reset the context to pristine state
-        ctx.save();             // Save it so we can get it back later
-
-        this.dims = this.calculateDimensions();
-
-        ctx.scale(this.scale, this.scale);
-        ctx.lineWidth = 0.05;
-        // Move the context's zero point to the zero-zero coordinate.
-        ctx.translate(-this.dims.left, -this.dims.top);
-
-        // Create our 5x5 background tile.
-        // var pixels_per_cell = this.scale;
-        // this.bgPattern = ctx.createPattern(make5x5Grid(pixels_per_cell),
-        //                                    'repeat');
-
         this.redraw_grid = true;
     },
 
-    drawGrid: function() {
-        var dims = this.dims;
-        var ctx = this.ctx;
+    setupContext: function() {
+        var dims = this.dims = this.calculateDimensions();
+        var scale = this.scale;
 
-        // Clear the area we'll be drawing in.
-        ctx.clearRect(dims.left, dims.top,
-                      dims.right-dims.left, dims.bottom-dims.top);
-
-        // Draw a grid
-        ctx.save();
-        ctx.strokeStyle = '#aaa';
-
-        ctx.beginPath();
-        for (var x = dims.xstart; x <= dims.xend; ++x) {
-            // FIXME: uncomment
-            // if (0 === x % 5) continue;
-            ctx.moveTo(x, dims.ystart);
-            ctx.lineTo(x, dims.yend);
-        }
-        for (var y = dims.ystart; y <= dims.yend; ++y) {
-            // if (0 === y % 5) continue;
-            ctx.moveTo(dims.xstart, y);
-            ctx.lineTo(dims.xend, y);
-        }
-        ctx.stroke();
-
-        // Draw every 5th grid line in bolder stroke
-        ctx.strokeStyle = '#888';
-        //ctx.lineWidth *= 2;
-
-        ctx.beginPath();
-        for (var x = alignUp(dims.xstart, 5); x <= dims.xend; x += 5) {
-            ctx.moveTo(x, dims.ystart);
-            ctx.lineTo(x, dims.yend);
-        }
-        for (var y = alignUp(dims.ystart, 5); y <= dims.yend; y += 5) {
-            ctx.moveTo(dims.xstart, y);
-            ctx.lineTo(dims.xend, y);
+        function fixup(ctx) {
+            ctx.restore();      // restore to pristine state
+            ctx.save();         // save pristine state
+            ctx.scale(scale, scale);
+            // Move the context's origin to the upper-left corner of the cell at
+            // the origin of our infinite grid.
+            ctx.translate(-dims.left, -dims.top);
         }
 
-        ctx.stroke();
-        ctx.restore();
+        fixup(this.gridCtx);
+        fixup(this.cellCtx);
+        this.gridCtx.lineWidth = 0.05;
+
+        this.redraw_grid = true;
     },
 
     calculateDimensions: function() {
@@ -259,26 +153,126 @@ InfGridControl.prototype = {
             ystart: ystart, yend: yend
         };
     },
+
+    // drawing routines
+    draw: function() {
+        var ctx = this.ctx;
+        var dims = this.dims;
+        var model = this.model;
+        var forEachCell;
+
+        if (this.redraw_grid) {
+            // redraw everything
+            this.setupContext();
+            this.drawGrid();
+            this.drawAllCells();
+            this.redraw_grid = false;
+        } else {
+            this.redrawCells();
+        }
+
+        // Composite the grid & cell canvases.
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.drawImage(this.gridCanvas, 0, 0);
+        this.ctx.drawImage(this.cellCanvas, 0, 0);
+    },
+
+    drawAllCells: function() {
+        var dims = this.dims;
+        for (var x = dims.xstart; x <= dims.xend; ++x) {
+            for (var y = dims.ystart; y <= dims.yend; ++y) {
+                this.drawCell(this.cellCtx, x, y, this.model.get(x,y));
+            }
+        }
+        this.cells_to_redraw = {};
+    },
+
+    redrawCells: function() {
+        var dims = this.dims;
+        var to_redraw = this.cells_to_redraw;
+        this.cells_to_redraw = {};
+
+        for (var c in to_redraw) {
+            var x = to_redraw[c];
+            if (dims.xstart <= x[0] && x[0] <= dims.xend &&
+                dims.ystart <= x[1] && x[1] <= dims.yend)
+            {
+                this.drawCell(this.cellCtx, x[0], x[1], x[2]);
+            }
+        }
+    },
+
+    drawCell: function(ctx, x, y, v) {
+        ctx.save();
+        ctx.translate(x+0.5, y+0.5);
+        ctx.clearRect(-0.5, -0.5, 1, 1);
+        ctx.scale(0.9, 0.9);
+        this.model.ca.drawCell(ctx, v);
+        ctx.restore();
+    },
+
+    drawGrid: function() {
+        var dims = this.dims;
+        var ctx = this.gridCtx;
+
+        // Clear the area we'll be drawing in.
+        ctx.clearRect(dims.left, dims.top,
+                      dims.right-dims.left, dims.bottom-dims.top);
+
+        // Draw a grid
+        ctx.save();
+        ctx.strokeStyle = '#aaa';
+
+        ctx.beginPath();
+        for (var x = dims.xstart; x <= dims.xend; ++x) {
+            // FIXME: uncomment
+            //if (0 === x % 5) continue;
+            ctx.moveTo(x, dims.ystart);
+            ctx.lineTo(x, dims.yend);
+        }
+        for (var y = dims.ystart; y <= dims.yend; ++y) {
+            //if (0 === y % 5) continue;
+            ctx.moveTo(dims.xstart, y);
+            ctx.lineTo(dims.xend, y);
+        }
+        ctx.stroke();
+
+        // Draw every 5th grid line in bolder stroke
+        ctx.strokeStyle = '#888';
+        //ctx.lineWidth *= 2;
+
+        ctx.beginPath();
+        for (var x = alignUp(dims.xstart, 5); x <= dims.xend; x += 5) {
+            ctx.moveTo(x, dims.ystart);
+            ctx.lineTo(x, dims.yend);
+        }
+        for (var y = alignUp(dims.ystart, 5); y <= dims.yend; y += 5) {
+            ctx.moveTo(dims.xstart, y);
+            ctx.lineTo(dims.xend, y);
+        }
+
+        ctx.stroke();
+        ctx.restore();
+    },
 };
 
 
 // Construct the game's starting state
 var delay_ms = 100;
 //delay_ms *= 1000 * 1000;
-var min_width = 40;
+var min_width = 57.3;
 var min_height = min_width;
 
 var ctl = new InfGridControl(CAs.conway, false);
 
 // TODO: threshold for scale over which we do not draw grid lines.
-var pat = patterns.switchEngine;
+var pat = patterns.rPentomino;
 // FIXME should be a method on ctl
 putPattern(ctl, pat, -2, -2);
 
 // Now, deal with the canvas
 $(document).ready(function() {
     var canvas = document.getElementById("canvas");
-    var ctx = wrapContext(canvas.getContext('2d'));
     var $canvas = $(canvas);
 
     ctl.attach(canvas, {

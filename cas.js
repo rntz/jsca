@@ -29,7 +29,9 @@ function ConwayLike(born, survive) {
         },
         drawCell: function(ctx, v) {
             if (v) {
-                ctx.circle(0, 0, 0.5);
+                ctx.beginPath();
+                ctx.arc(0, 0, 0.5, 0, TAU, false);
+                ctx.closePath();
                 ctx.fill();
             } else {
                 ctx.clearRect(-0.5, -0.5, 1, 1);
