@@ -6,8 +6,9 @@
 // - CA.neighborhood: A value indicating the CA's neighborhood type. Currently
 //   the only acceptable value is "moore".
 //
-// - CA.drawCell(ctx, v): Draws a cell with a given value in a 1x1 box centered
-//   on the origin.
+// - CA.drawCell(ctx, v): Draws a cell with value `v` in a 1x1 square centered
+//   on the origin. May assume the canvas has already been cleared if necessary.
+
 function ConwayLike(born, survive) {
     if ('undefined' === typeof survive) {
         // Assume the first arg is a rulestring in "B/S" notation.
@@ -33,10 +34,6 @@ function ConwayLike(born, survive) {
                 ctx.arc(0, 0, 0.5, 0, TAU, false);
                 ctx.closePath();
                 ctx.fill();
-            } else {
-                ctx.clearRect(-0.5, -0.5, 1, 1);
-                // ctx.fillStyle = "blue";
-                // ctx.fillRect(-0.3, -0.3, 0.3*2, 0.3*2);
             }
         },
     };

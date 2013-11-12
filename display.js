@@ -1,41 +1,3 @@
-// TODO: take configuration for eg. color of grid lines
-function make5x5Grid(pixels_per_cell) {
-    var pat = document.createElement('canvas');
-    pat.width = pat.height = 5 * pixels_per_cell;
-
-    var ctx = pat.getContext('2d');
-    ctx.scale(pixels_per_cell, pixels_per_cell);
-    ctx.clearRect(0,0, 5,5);
-
-    ctx.strokeStyle = '#aaa';
-    ctx.lineWidth = 0.05;
-
-    // Draw normal grid lines
-    ctx.beginPath();
-    for (var x = 1; x < 5; ++x) { ctx.moveTo(x, 0); ctx.lineTo(x, 5); }
-    for (var y = 1; y < 5; ++y) { ctx.moveTo(0, y); ctx.lineTo(5, y); }
-    ctx.stroke();
-
-    // Draw emphasized outer grid lines
-    //ctx.strokeStyle = '#888';
-    ctx.lineWidth *= 2;
-
-    ctx.beginPath();
-    ctx.moveTo(0, 0); ctx.lineTo(0, 5);
-    ctx.moveTo(5, 0); ctx.lineTo(5, 5);
-    ctx.moveTo(0, 0); ctx.lineTo(5, 0);
-    ctx.moveTo(0, 5); ctx.lineTo(5, 5);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(1,1);
-    ctx.stroke();
-
-    return pat;
-}
-
-
 function InfGridControl(ca, bgVal, config) {
     this.canvas = null;
 
@@ -92,10 +54,10 @@ InfGridControl.prototype = {
         this.scale = Math.min(canvas.width / config.dimensions[0],
                               canvas.height / config.dimensions[1]);
 
-        this.cellCanvas.width = this.gridCanvas.width = this.canvas.width;
-        this.cellCanvas.height = this.gridCanvas.height = this.canvas.height;
+        this.gridCanvas.width = this.canvas.width;
+        this.gridCanvas.height = this.canvas.height;
 
-        this.redraw_grid = true;
+        this.setupContext();
     },
 
     detach: function() {
@@ -106,28 +68,34 @@ InfGridControl.prototype = {
         delete this.ctx;
     },
 
-    translate: function(x,y) {
-        this.center[0] += x;
-        this.center[1] += y;
-        this.redraw_grid = true;
-    },
-
     setupContext: function() {
         var dims = this.dims = this.calculateDimensions();
-        var scale = this.scale;
 
-        function fixup(ctx) {
-            ctx.restore();      // restore to pristine state
-            ctx.save();         // save pristine state
-            ctx.scale(scale, scale);
-            // Move the context's origin to the upper-left corner of the cell at
-            // the origin of our infinite grid.
-            ctx.translate(-dims.left, -dims.top);
-        }
-
-        fixup(this.gridCtx);
-        fixup(this.cellCtx);
+        // ----- Set up grid canvas.
+        this.gridCtx.restore();
+        this.gridCtx.save();
+        this.gridCtx.scale(this.scale, this.scale);
+        this.gridCtx.translate(-dims.left, -dims.top);
         this.gridCtx.lineWidth = 0.05;
+
+        // ----- Set up cell canvas.
+
+        // Choose the cell canvas' scale such that cell boundaries fall
+        // on pixel boundaries; ie, each cell's width/height are an integral
+        // number of pixels.
+        //
+        // It's not clear whether floor or ceiling is more appropriate.
+        this.cellScale = Math.max(3, Math.ceil(this.scale));
+
+        // The cell canvas contains a full drawing of every cell visible (in
+        // part or in whole) on screen.
+        var width = dims.xend - dims.xstart + 1;
+        var height = dims.yend - dims.ystart + 1;
+
+        this.cellCanvas.width = width * this.cellScale;
+        this.cellCanvas.height = height * this.cellScale;
+        this.cellCtx.scale(this.cellScale, this.cellScale);
+        this.cellCtx.translate(-dims.xstart, -dims.ystart);
 
         this.redraw_grid = true;
     },
@@ -154,16 +122,35 @@ InfGridControl.prototype = {
         };
     },
 
+    // Moving around, scaling & unscaling, and other transformations
+    translateTo: function(x,y) {
+        this.center[0] = x;
+        this.center[1] = y;
+        this.setupContext();
+    },
+
+    translateBy: function(x,y) {
+        this.center[0] += x;
+        this.center[1] += y;
+        this.setupContext();
+    },
+
+    // scale must be > 0.
+    // scale > 1 is zoom in, scale < 1 is zoom out.
+    scaleBy: function(scale) {
+        this.scale *= scale;
+        this.setupContext();
+    },
+
+    scaleTo: function(scale) {
+        this.scale = scale;
+        this.setupContext();
+    },
+
     // drawing routines
     draw: function() {
-        var ctx = this.ctx;
-        var dims = this.dims;
-        var model = this.model;
-        var forEachCell;
-
         if (this.redraw_grid) {
             // redraw everything
-            this.setupContext();
             this.drawGrid();
             this.drawAllCells();
             this.redraw_grid = false;
@@ -171,17 +158,34 @@ InfGridControl.prototype = {
             this.redrawCells();
         }
 
+        var ctx = this.ctx;
+        var dims = this.dims;
+
         // Composite the grid & cell canvases.
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        this.ctx.drawImage(this.gridCanvas, 0, 0);
-        this.ctx.drawImage(this.cellCanvas, 0, 0);
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Drawing the grid canvas is easy; it matches up exactly onto our
+        // canvas.
+        ctx.drawImage(this.gridCanvas, 0, 0);
+
+        // Draw the cells in the proper location.
+        ctx.save();
+        ctx.scale(this.scale, this.scale);
+        ctx.translate(-dims.left, -dims.top);
+
+        ctx.drawImage(this.cellCanvas,
+                      dims.xstart,
+                      dims.ystart,
+                      dims.xend - dims.xstart + 1,
+                      dims.yend - dims.ystart + 1);
+        ctx.restore();
     },
 
     drawAllCells: function() {
         var dims = this.dims;
         for (var x = dims.xstart; x <= dims.xend; ++x) {
             for (var y = dims.ystart; y <= dims.yend; ++y) {
-                this.drawCell(this.cellCtx, x, y, this.model.get(x,y));
+                this.drawCell(x, y, this.model.get(x,y));
             }
         }
         this.cells_to_redraw = {};
@@ -197,17 +201,21 @@ InfGridControl.prototype = {
             if (dims.xstart <= x[0] && x[0] <= dims.xend &&
                 dims.ystart <= x[1] && x[1] <= dims.yend)
             {
-                this.drawCell(this.cellCtx, x[0], x[1], x[2]);
+                this.drawCell(x[0], x[1], x[2]);
             }
         }
     },
 
-    drawCell: function(ctx, x, y, v) {
+    drawCell: function(x, y, v) {
+        var ctx = this.cellCtx;
+
         ctx.save();
+
         ctx.translate(x+0.5, y+0.5);
         ctx.clearRect(-0.5, -0.5, 1, 1);
         ctx.scale(0.9, 0.9);
-        this.model.ca.drawCell(ctx, v);
+        this.model.ca.drawCell(ctx,v);
+
         ctx.restore();
     },
 
@@ -225,21 +233,20 @@ InfGridControl.prototype = {
 
         ctx.beginPath();
         for (var x = dims.xstart; x <= dims.xend; ++x) {
-            // FIXME: uncomment
-            //if (0 === x % 5) continue;
+            if (0 === x % 5) continue;
             ctx.moveTo(x, dims.ystart);
             ctx.lineTo(x, dims.yend);
         }
         for (var y = dims.ystart; y <= dims.yend; ++y) {
-            //if (0 === y % 5) continue;
+            if (0 === y % 5) continue;
             ctx.moveTo(dims.xstart, y);
             ctx.lineTo(dims.xend, y);
         }
         ctx.stroke();
 
         // Draw every 5th grid line in bolder stroke
-        ctx.strokeStyle = '#888';
-        //ctx.lineWidth *= 2;
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth *= 1.5;
 
         ctx.beginPath();
         for (var x = alignUp(dims.xstart, 5); x <= dims.xend; x += 5) {
@@ -320,6 +327,40 @@ $(document).ready(function() {
 
         // Toggle the cell's state.
         ctl.put(x, y, !ctl.get(x,y));
+        e.stopPropagation();
+        draw();
+
+        return true;
+    });
+
+    $('#clear').on("click", function(e) {
+        alert("clear unimplemented"); // FIXME
+    });
+
+    var center_input = document.getElementById('center');
+    center_input.value = ctl.center;
+    $(center_input).on("change", function(e) {
+        var coords = center_input.value.split(',');
+        if (coords.length !== 2) {
+            // TODO: alert user of invalid input
+            center_input.value = ctl.center;
+            return;
+        }
+
+        var x = parseFloat(coords[0]);
+        var y = parseFloat(coords[1]);
+        if (isNaN(x) || isNaN(y)) {
+            center_input.value = ctl.center;
+            return;
+        }
+
+        ctl.translateTo(x,y);
+    });
+
+    var scale_input = document.getElementById('scale');
+    scale_input.value = ctl.scale;
+    $(scale_input).on("change", function(e) {
+        ctl.scaleTo(parseFloat(scale_input.value));
         draw();
     });
 
