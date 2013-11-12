@@ -11,6 +11,21 @@ function bind(object, func) {
 
 Array.prototype.contains = function(e) { return -1 !== this.indexOf(e); }
 
+// I think this only works properly for positive x,y.
+function gcd(a, b) {
+    while (b !== 0) {
+        // (a', b') := (b, a % b)
+        var tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    return a;
+}
+
+function lcm(x,y) {
+    return (x * y) / gcd(x,y);
+}
+
 function alignUp(x, algn) {
     var r = x % algn;
     return 0 === r ? x : x + (x >= 0 ? algn - r : -r);
